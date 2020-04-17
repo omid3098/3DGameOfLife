@@ -126,8 +126,10 @@ namespace GameOfLife
                     }
                 }
 
-                if (lives[i] == true && liveNeighbors == 2 || liveNeighbors == 3) newLives[i] = true;
-                else if (liveNeighbors == 3 && lives[i] == false) newLives[i] = true;
+                if (lives[i] == true && liveNeighbors < 2) newLives[i] = false;
+                else if (lives[i] == true && liveNeighbors == 2 || liveNeighbors == 3) newLives[i] = true;
+                else if (lives[i] == true && liveNeighbors > 3) newLives[i] = false;
+                else if (lives[i] == false && liveNeighbors == 3) newLives[i] = true;
                 else newLives[i] = false;
             }
             public int3 To3D(int idx)

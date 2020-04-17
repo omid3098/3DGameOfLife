@@ -1,12 +1,14 @@
 ﻿using System;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Rendering;
 using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
+using Unity.Burst;
 
 namespace GameOfLife
 {
@@ -78,8 +80,34 @@ namespace GameOfLife
 
         private void UpdateLives()
         {
-            NativeArray<bool> newLives = new NativeArray<bool>(lives.Length, Allocator.Temp);
-            for (int i = 0; i < lives.Length; i++)
+            NativeArray<bool> newLives = new NativeArray<bool>(lives.Length, Allocator.TempJob);
+            var job = new FindNeighborJob()
+            {
+                lives = lives,
+                newLives = newLives,
+                worldLength = worldLength
+            };
+
+            JobHandle jobHandle = job.Schedule(lives, 1024);
+            jobHandle.Complete();
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                Entity entity = entities[i];
+                entityManager.SetComponentData(entity, new Scale() { Value = job.newLives[i] ? livingScale : 0 });
+                lives[i] = newLives[i];
+            }
+
+            newLives.Dispose();
+        }
+
+        [BurstCompile]
+        public struct FindNeighborJob : IJobParallelForDefer
+        {
+            [ReadOnly] public NativeArray<bool> lives;
+            public NativeArray<bool> newLives;
+            public int worldLength;
+            public void Execute(int i)
             {
                 int3 pos = To3D(i);
                 int liveNeighbors = 0;
@@ -102,41 +130,30 @@ namespace GameOfLife
                 else if (liveNeighbors == 3 && lives[i] == false) newLives[i] = true;
                 else newLives[i] = false;
             }
-
-            for (int i = 0; i < entities.Length; i++)
+            public int3 To3D(int idx)
             {
-                Entity entity = entities[i];
-                entityManager.SetComponentData(entity, new Scale() { Value = newLives[i] ? livingScale : 0 });
-                lives[i] = newLives[i];
+                int z = idx / (worldLength * worldLength);
+                idx -= z * worldLength * worldLength;
+                int y = idx / worldLength;
+                int x = idx % worldLength;
+                return new int3(x, y, z);
             }
 
-            newLives.Dispose();
-        }
-
-        private bool PosLives(int x, int y, int z)
-        {
-            int index = To1D(x, y, z);
-            if (index >= 0 && index < lives.Length)
+            private bool PosLives(int x, int y, int z)
             {
-                return lives[index];
+                int index = To1D(x, y, z);
+                if (index >= 0 && index < lives.Length)
+                {
+                    return lives[index];
+                }
+                return false;
             }
-            return false;
-        }
 
-        public int To1D(int x, int y, int z)
-        {
-            return (z * worldLength * worldLength) + (y * worldLength) + x;
+            public int To1D(int x, int y, int z)
+            {
+                return (z * worldLength * worldLength) + (y * worldLength) + x;
+            }
         }
-
-        public int3 To3D(int idx)
-        {
-            int z = idx / (worldLength * worldLength);
-            idx -= z * worldLength * worldLength;
-            int y = idx / worldLength;
-            int x = idx % worldLength;
-            return new int3(x, y, z);
-        }
-
         public void ResetWorld()
         {
             for (int i = 0; i < lives.Length; i++)

@@ -531,8 +531,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   livingScale: 0.95
-  StartLivingPercent: 5
-  worldLength: 50
+  StartLivingPercent: 40
+  worldLength: 20
   updateInterval: 0.05
   mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
   material: {fileID: 2100000, guid: 442c117af4b42e2679c610bb1458dad3, type: 2}
